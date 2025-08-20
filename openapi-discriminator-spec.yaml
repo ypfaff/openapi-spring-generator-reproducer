@@ -1,0 +1,120 @@
+openapi: 3.1.0
+info:
+  title: Polymorphic Shape Test API
+  description: Minimal API to reproduce generator issues with discriminator, oneOf, and allOf in a nested property.
+  version: 0.0.1
+
+paths:
+  /drawings:
+    post:
+      operationId: createDrawing
+      summary: Create a drawing with a polymorphic shape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drawing'
+            examples:
+              circle:
+                value:
+                  id: "d-1"
+                  shape:
+                    type: circle
+                    radius: 42
+              rectangle:
+                value:
+                  id: "d-2"
+                  shape:
+                    type: rectangle
+                    width: 800
+                    height: 600
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drawing'
+        '400':
+          description: Bad request
+    get:
+      operationId: listDrawings
+      summary: List drawings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Drawing'
+
+components:
+  schemas:
+    Drawing:
+      type: object
+      additionalProperties: false
+      required: [id, shape]
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the drawing
+        shape:
+          $ref: '#/components/schemas/Shape'
+
+    Shape:
+      type: object
+      description: Base type for all shapes.
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [circle, rectangle]
+          description: Discriminator indicating the concrete shape type
+      discriminator:
+        propertyName: type
+        mapping:
+          circle: '#/components/schemas/Circle'
+          rectangle: '#/components/schemas/Rectangle'
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Rectangle'
+
+    Circle:
+      allOf:
+        - $ref: '#/components/schemas/Shape'
+        - type: object
+          additionalProperties: false
+          required: [type, radius]
+          properties:
+            type:
+              type: string
+              enum: [circle]
+              description: Must be 'circle'
+            radius:
+              type: integer
+              minimum: 1
+              description: Radius in arbitrary units
+
+    Rectangle:
+      allOf:
+        - $ref: '#/components/schemas/Shape'
+        - type: object
+          additionalProperties: false
+          required: [type, width, height]
+          properties:
+            type:
+              type: string
+              enum: [rectangle]
+              description: Must be 'rectangle'
+            width:
+              type: integer
+              minimum: 1
+              description: Width in arbitrary units
+            height:
+              type: integer
+              minimum: 1
+              description: Height in arbitrary units
