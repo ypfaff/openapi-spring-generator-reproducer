@@ -1,0 +1,115 @@
+= OpenAPI Generator Spring Reproducer: nested discriminator + oneOf + allOf breaks model generation
+:toc:
+
+This repository reproduces a mis-generation in OpenAPI Generator (7.10.0) for the `spring` server stub when using a nested polymorphic property with a `discriminator` on a base schema (`oneOf`) and subtype inheritance via `allOf`.
+
+== Environment
+
+* Java: 21
+* OpenAPI Generator Maven Plugin: 7.10.0
+* Generator: `spring`
+* Config options:
+** `useOneOfInterfaces=true`
+** `interfaceOnly=true`
+** `useSpringBoot3=true`
+** `openApiNullable=false`
+
+== How to reproduce
+
+[source,shell]
+----
+./mvnw clean generate-sources
+----
+
+This generates sources into `target/generated-sources/openapi`.
+
+== The Minimal Spec
+
+The minimal spec is in `openapi-discriminator-spec.yaml` and defines:
+
+* Container `Drawing` with nested polymorphic field `shape`
+* Base `Shape` with `discriminator: { propertyName: type, mapping: { circle, rectangle } }` and `oneOf`
+* Subtypes `Circle` and `Rectangle` defined with `allOf: [ $ref: Shape, {...} ]`
+
+This mirrors a common “inheritance + discriminator” setup.
+
+== Actual generated code (broken)
+
+The generator creates an *interface* for `Shape` and then makes subtypes `extend` it as if it were a *class*, and also leaks sibling fields into each subtype via bogus `super.*` calls.
+
+=== Shape.java (interface)
+
+[source,java]
+----
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type", visible = true)
+@JsonSubTypes({
+  @JsonSubTypes.Type(value = Circle.class, name = "circle"),
+  @JsonSubTypes.Type(value = Rectangle.class, name = "rectangle"),
+  @JsonSubTypes.Type(value = Circle.class, name = "Circle"),
+  @JsonSubTypes.Type(value = Rectangle.class, name = "Rectangle")
+})
+public interface Shape {
+    public String getType();
+}
+----
+
+Note the duplicate subtype names (`circle` and `Circle`).
+
+=== Circle.java (extends interface + pulls in rectangle fields)
+
+[source,java]
+----
+public class Circle extends Shape implements Shape {   // <-- cannot extend an interface
+  public enum TypeEnum { CIRCLE("circle"); ... }
+  private TypeEnum type;
+  private Integer radius;
+
+  public Circle(TypeEnum type, Integer radius, Integer width, Integer height) { // <-- width/height shouldn't be here
+    super(type, radius, width, height);  // <-- bogus super(...) call; Shape is an interface
+    this.type = type;
+    this.radius = radius;
+  }
+
+  public Circle width(Integer width) {    // <-- rectangle field leaked into Circle
+    super.width(width);                   // <-- bogus
+    return this;
+  }
+  public Circle height(Integer height) {  // <-- leaked too
+    super.height(height);
+    return this;
+  }
+}
+----
+
+=== Rectangle.java (extends interface + pulls in circle field)
+
+[source,java]
+----
+public class Rectangle extends Shape implements Shape {
+  public enum TypeEnum { RECTANGLE("rectangle"); ... }
+  private TypeEnum type;
+  private Integer width;
+  private Integer height;
+
+  public Rectangle(TypeEnum type, Integer width, Integer height, Integer radius) { // <-- radius shouldn't be here
+    super(type, radius, width, height);                                           // <-- bogus
+    this.type = type;
+    this.width = width;
+    this.height = height;
+  }
+
+  public Rectangle radius(Integer radius) {  // <-- circle field leaked into Rectangle
+    super.radius(radius);                    // <-- bogus
+    return this;
+  }
+}
+----
+
+== Expected behavior
+
+The generator should produce a **class-based hierarchy** (no interfaces):
+
+* `Shape` is an **abstract base class** that owns the discriminator field `type` (with the Jackson polymorphism annotations).
+* Subtypes **extend** `Shape`, fix `type` to their discriminator value, and declare **only their own fields**.
+* No field leakage between subtypes and no `super.*` calls unless `Shape` is a class that actually defines those members.
+* No duplicate subtype names in the discriminator mapping.
