@@ -107,9 +107,121 @@ public class Rectangle extends Shape implements Shape {
 
 == Expected behavior
 
-The generator should produce a **class-based hierarchy** (no interfaces):
+With `useOneOfInterfaces=true`, the generator should produce a **proper interface-based hierarchy**:
 
-* `Shape` is an **abstract base class** that owns the discriminator field `type` (with the Jackson polymorphism annotations).
-* Subtypes **extend** `Shape`, fix `type` to their discriminator value, and declare **only their own fields**.
-* No field leakage between subtypes and no `super.*` calls unless `Shape` is a class that actually defines those members.
+* `Shape` is a **pure interface** that defines only the discriminator method `getType()` (with Jackson polymorphism annotations).
+* Subtypes **implement** `Shape` (not extend), declare **only their own fields**, and return their specific type value in `getType()`.
+* No field leakage between subtypes - Circle should only have `radius`, Rectangle should only have `width` and `height`.
+* No `super.*` method calls since Shape is an interface without implementations.
 * No duplicate subtype names in the discriminator mapping.
+* No bogus constructors with parameters from sibling types.
+
+== Correct expected code with useOneOfInterfaces=true (one possible approach)
+
+=== ShapeType.java (shared enum)
+
+[source,java]
+----
+@JsonValue
+public enum ShapeType {
+    CIRCLE("circle"),
+    RECTANGLE("rectangle");
+    
+    private final String value;
+    
+    ShapeType(String value) {
+        this.value = value;
+    }
+    
+    public String getValue() {
+        return value;
+    }
+    
+    @JsonCreator
+    public static ShapeType fromValue(String value) {
+        for (ShapeType type : ShapeType.values()) {
+            if (type.value.equals(value)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    }
+}
+----
+
+=== Shape.java (interface - correct)
+
+[source,java]
+----
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type", visible = true)
+@JsonSubTypes({
+  @JsonSubTypes.Type(value = Circle.class, name = "circle"),
+  @JsonSubTypes.Type(value = Rectangle.class, name = "rectangle")
+})
+public interface Shape {
+    ShapeType getType();
+}
+----
+
+=== Circle.java (implements interface - correct)
+
+[source,java]
+----
+public class Circle implements Shape {
+  private ShapeType type = ShapeType.CIRCLE;
+  private Integer radius;
+
+  // Only Circle's own parameters
+  public Circle(Integer radius) {
+    this.radius = radius;
+  }
+
+  @Override
+  public ShapeType getType() {
+    return type;
+  }
+
+  // Only Circle's own methods - no width/height
+  public Circle radius(Integer radius) {
+    this.radius = radius;
+    return this;
+  }
+  
+  // getters/setters only for Circle fields...
+}
+----
+
+=== Rectangle.java (implements interface - correct)
+
+[source,java]
+----
+public class Rectangle implements Shape {
+  private ShapeType type = ShapeType.RECTANGLE;
+  private Integer width;
+  private Integer height;
+
+  // Only Rectangle's own parameters  
+  public Rectangle(Integer width, Integer height) {
+    this.width = width;
+    this.height = height;
+  }
+
+  @Override
+  public ShapeType getType() {
+    return type;
+  }
+
+  // Only Rectangle's own methods - no radius
+  public Rectangle width(Integer width) {
+    this.width = width;
+    return this;
+  }
+  
+  public Rectangle height(Integer height) {
+    this.height = height;
+    return this;
+  }
+  
+  // getters/setters only for Rectangle fields...
+}
+----
