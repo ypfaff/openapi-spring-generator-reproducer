@@ -1,12 +1,12 @@
 = OpenAPI Generator Spring Reproducer: nested discriminator + oneOf + allOf breaks model generation
 :toc:
 
-This repository reproduces a mis-generation in OpenAPI Generator (7.10.0) for the `spring` server stub when using a nested polymorphic property with a `discriminator` on a base schema (`oneOf`) and subtype inheritance via `allOf`.
+This repository reproduces a mis-generation in OpenAPI Generator (7.15.0) for the `spring` server stub when using a nested polymorphic property with a `discriminator` on a base schema (`oneOf`) and subtype inheritance via `allOf`.
 
 == Environment
 
 * Java: 21
-* OpenAPI Generator Maven Plugin: 7.10.0
+* OpenAPI Generator Maven Plugin: 7.15.0
 * Generator: `spring`
 * Config options:
 ** `useOneOfInterfaces=true`
