@@ -225,3 +225,24 @@ public class Rectangle implements Shape {
   // getters/setters only for Rectangle fields...
 }
 ----
+
+== Solution
+
+The solution to this problem consists of two parts.
+
+First, the enum for the discriminator field `type` must be defined centrally in `components/schemas` and referenced from the `Shape` and its subtypes.
+Using an inline enum definition for the discriminator leads to incorrect code generation.
+
+Second, the OpenAPI generator has issues with complex schemas that mix `properties` with `oneOf` or `anyOf`.
+This is especially problematic when `oneOf` is used for interface generation and the `Shape` element contains both `properties` and `oneOf`.
+To work around this, the `REMOVE_ANYOF_ONEOF_AND_KEEP_PROPERTIES_ONLY` normalizer is used.
+This normalizer removes `oneOf`/`anyOf` constructs that are only used for inter-dependency rules, which many generators cannot handle correctly.
+
+For more details on this issue, see this GitHub comment: https://github.com/OpenAPITools/openapi-generator/issues/21801#issuecomment-3240155885
+
+A big thank you to https://github.com/jpfinne[jpfinne] for providing these solutions in the GitHub issue.
+
+Both solutions have been implemented in this branch. You can see the changes in the following files:
+
+* link:pom.xml[pom.xml] - For the `openapiNormalizer` configuration.
+* link:openapi-discriminator-spec.yaml[openapi-discriminator-spec.yaml] - For the centralized enum definition.
