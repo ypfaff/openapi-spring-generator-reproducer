@@ -51,6 +51,17 @@
                         </goals>
                         <configuration>
                             <inputSpec>openapi-discriminator-spec.yaml</inputSpec>
+                            <!--
+                               The generator struggles with mixed inheritance (for discriminator mapping) and interfaces (for oneOf).
+                               A schema combining 'properties' and 'oneOf' is particularly problematic.
+                               The REMOVE_ANYOF_ONEOF_AND_KEEP_PROPERTIES_ONLY normalizer serves as a workaround.
+                               It addresses issues where 'oneOf' or 'anyOf' are used for property interdependency rules (via 'required')
+                               without defining properties themselves, a scenario that many generators currently cannot handle.
+                            -->
+                            <openapiNormalizer>
+                                <openapiNormalizer>REMOVE_ANYOF_ONEOF_AND_KEEP_PROPERTIES_ONLY=true</openapiNormalizer>
+                            </openapiNormalizer>
+                            <collapsedSpec>normalized-spec</collapsedSpec>
                             <generatorName>spring</generatorName>
                             <apiPackage>
                                 page.yannick.openapi_spring_generator_reproducer.adapters.rest.api
