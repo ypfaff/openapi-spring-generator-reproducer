@@ -64,6 +64,11 @@ components:
         shape:
           $ref: '#/components/schemas/Shape'
 
+    TypeEnum:
+      type: string
+      enum: [ circle, rectangle ]
+      description: Discriminator indicating the concrete shape type
+
     Shape:
       type: object
       description: Base type for all shapes.
@@ -71,9 +76,7 @@ components:
       required: [type]
       properties:
         type:
-          type: string
-          enum: [circle, rectangle]
-          description: Discriminator indicating the concrete shape type
+          $ref: '#/components/schemas/TypeEnum'
       discriminator:
         propertyName: type
         mapping:
@@ -91,9 +94,7 @@ components:
           required: [type, radius]
           properties:
             type:
-              type: string
-              enum: [circle]
-              description: Must be 'circle'
+              $ref: '#/components/schemas/TypeEnum'
             radius:
               type: integer
               minimum: 1
@@ -107,9 +108,7 @@ components:
           required: [type, width, height]
           properties:
             type:
-              type: string
-              enum: [rectangle]
-              description: Must be 'rectangle'
+              $ref: '#/components/schemas/TypeEnum'
             width:
               type: integer
               minimum: 1
